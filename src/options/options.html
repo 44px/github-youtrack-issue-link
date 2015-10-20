@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Options</title>
+  <link rel="stylesheet" href="options.css" charset="utf-8">
+</head>
+<body>
+  <div class="form">
+    <div class="form__group">
+      <div class="form__row">
+        <label class="form__label" for="youtrackUrl">Youtrack URL</label>
+        <input class="form__input" id="youtrackUrl" type="text" name="youtrackUrl">
+      </div>
+      <div class="form__row">
+        <label class="form__label" for="repos">Github repos (format: user/repo, one per line)</label>
+        <textarea class="form__input" id="repos" name="repos" rows="4"></textarea>
+      </div>
+      <div class="form__row form__row--submit">
+        <div class="form__status" id="status"></div>
+        <button id="save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+/* Notification */
+.ytlink-notice {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  padding: 5px;
+  font-size: 14px;
+  text-align: center;
+  color: #543;
+  background: #FFF5C0;
+  border-top: 1px solid #EDC;
+  transform: translate(0, 100%);
+  opacity: 0;
+  transition: transform 0.25s ease,
+              opacity 0.35s ease;
+}
+
+.ytlink-notice_show {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+
+/* Label */
+.ytlink-label {
+  vertical-align: 1px;
+}

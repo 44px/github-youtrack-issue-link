@@ -1,0 +1,34 @@
+{
+  "manifest_version": 2,
+
+  "name": "Github YouTrack issue link",
+  "description": "Shows issue status from YouTrack beside pull request name",
+  "version": "0.9.1",
+
+  "permissions": [
+    "webNavigation",
+    "storage"
+  ],
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "css": ["pr-page/pr-page.css"],
+      "js": ["pr-page/pr-page.js"]
+    }
+  ],
+
+  "icons": {
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "chrome_style": true
+  }
+}
