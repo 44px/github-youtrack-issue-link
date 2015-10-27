@@ -3,7 +3,7 @@
 
   "name": "Github YouTrack issue link",
   "description": "Shows issue status from YouTrack beside pull request name",
-  "version": "0.9.1",
+  "version": "1.0",
 
   "permissions": [
     "webNavigation",
@@ -11,7 +11,8 @@
   ],
 
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["background.js"],
+    "persistent": false
   },
 
   "content_scripts": [

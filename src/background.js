@@ -8,7 +8,7 @@ function setupEventHandlers() {
   const defaultEventFilters = {
     url: [{
       hostEquals: 'github.com',
-      pathSuffix: `/pulls`
+      pathContains: `/pull`
     }]
   };
 
@@ -16,7 +16,7 @@ function setupEventHandlers() {
     const eventFilters = (data.repos.length > 0) ? {
       url: data.repos.map((repo) => ({
         hostEquals: 'github.com',
-        pathSuffix: `${repo}/pulls`
+        pathContains: `${repo}/pull`
       }))
     } : defaultEventFilters;
 

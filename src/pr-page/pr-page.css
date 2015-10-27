@@ -16,7 +16,7 @@
               opacity 0.35s ease;
 }
 
-.ytlink-notice_show {
+.ytlink-notice--show {
   opacity: 1;
   transform: translate(0, 0);
 }
@@ -24,5 +24,28 @@
 
 /* Label */
 .ytlink-label {
+  display: inline-block;
+  font-weight: bold;
+}
+
+.ytlink-label,
+.ytlink-label:hover {
+  text-decoration: none;
+}
+
+.ytlink-label--small {
+  padding: 3px 4px;
+  font-size: 11px;
+  line-height: 11px;
+  border-radius: 2px;
   vertical-align: 1px;
+}
+
+.ytlink-label--big {
+  margin-right: 5px;
+  padding: 3px 5px;
+  font-size: 16px;
+  line-height: 20px;
+  border-radius: 3px;
+  vertical-align: middle;
 }

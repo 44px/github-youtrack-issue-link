@@ -14,8 +14,10 @@ function createOrUpdateIssueLinks(storageData) {
     return;
   }
 
-  const pullRequests = QSA('.issue-title-link').map((link) => {
-    const issueId = getIssueId(link.text);
+  const prListLinks = QSA('.issue-title-link');
+  const prSingleTitle = QSA('.js-issue-title');
+  const pullRequests = prListLinks.concat(prSingleTitle).map((link) => {
+    const issueId = getIssueId(link.textContent);
     const issueLink = (issueId !== null) ? `${youtrackUrl}/issue/${issueId}` : '';
 
     return {
@@ -27,10 +29,11 @@ function createOrUpdateIssueLinks(storageData) {
   });
 
   getIssueStatuses(youtrackUrl, pullRequests).then((issues) => {
+    const labelSize = prSingleTitle.length ? 'big' : 'small';
     issues.forEach((issue) => {
       const pr = pullRequests.find((pr) => pr.issueId === issue.id);
       pr.issueStatus = issue.status;
-      createOrUpdateLabel(pr);
+      createOrUpdateLabel(pr, labelSize);
     });
   }).catch((error) => {
     if (error.response && (error.response.status === 401)) {
@@ -48,6 +51,7 @@ function QSA(selector) {
 }
 
 function getNotificationPanel() {
+  const SHOW_CLASS = 'ytlink-notice--show';
   let panel = document.querySelector('.ytlink-notice');
   if (panel === null) {
     panel = document.createElement('div');
@@ -58,23 +62,23 @@ function getNotificationPanel() {
   return {
     show: function(message) {
       panel.textContent = `Github YouTrack issue link: ${message}`;
-      panel.classList.add('ytlink-notice_show');
+      panel.classList.add(SHOW_CLASS);
 
       clearTimeout(window.ytLinkNoticeTimeout);
       window.ytLinkNoticeTimeout = setTimeout(() => {
-        panel.classList.remove('ytlink-notice_show');
+        panel.classList.remove(SHOW_CLASS);
         panel.textContent = '';
       }, 5000);
     }
   };
 }
 
-function createOrUpdateLabel(pr) {
+function createOrUpdateLabel(pr, size) {
   const LABEL_CLASS = 'ytlink-label';
   let label = pr.link.parentNode.querySelector(`.${LABEL_CLASS}`);
   if (label === null) {
     label = document.createElement('a');
-    label.classList.add('label', LABEL_CLASS);
+    label.classList.add(LABEL_CLASS, `${LABEL_CLASS}--${size}`);
     label.target = '_blank';
     pr.link.parentNode.insertBefore(label, pr.link);
   }
