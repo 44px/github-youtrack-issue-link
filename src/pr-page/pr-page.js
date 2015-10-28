@@ -79,7 +79,6 @@ function createOrUpdateLabel(pr, size) {
   if (label === null) {
     label = document.createElement('a');
     label.classList.add(LABEL_CLASS, `${LABEL_CLASS}--${size}`);
-    label.target = '_blank';
     pr.link.parentNode.insertBefore(label, pr.link);
   }
 
