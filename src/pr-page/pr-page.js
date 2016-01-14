@@ -1,91 +1,81 @@
 "use strict";
 
-function createOrUpdateIssueLinks(storageData) {
-  const youtrackUrl = storageData.youtrackUrl;
-  const notificationPanel = getNotificationPanel();
-  const unknownStatus = {
-    id: null,
-    value: 'Unknown',
-    color: {bg: '#444', fg: '#FFF'}
-  };
-
-  if (youtrackUrl === '') {
-    notificationPanel.show('Please set YouTrack url in options');
-    return;
-  }
-
-  const prListLinks = QSA('.issue-title-link');
-  const prSingleTitle = QSA('.js-issue-title');
-  const pullRequests = prListLinks.concat(prSingleTitle).map((link) => {
-    const issueId = getIssueId(link.textContent);
-    const issueLink = (issueId !== null) ? `${youtrackUrl}/issue/${issueId}` : '';
-
-    return {
-      link,
-      issueId,
-      issueLink,
-      issueStatus: unknownStatus
-    }
+(function init() {
+  const renderIssueLinks = getIssueLinksRenderer(getNotifier());
+  
+  chrome.runtime.onMessage.addListener((storageData) => {
+    renderIssueLinks(storageData);
+    // For single PR pages: when PR merged or comment updated, header DOM node is replaced.
+    // So we need to watch for it and re-render labels.
+    const observe = getDOMObserver(() => renderIssueLinks(storageData));
+    observe(document.querySelector('.js-pull-request-tab-container'));
   });
-
-  getIssueStatuses(youtrackUrl, pullRequests).then((issues) => {
-    const labelSize = prSingleTitle.length ? 'big' : 'small';
-    issues.forEach((issue) => {
-      const pr = pullRequests.find((pr) => pr.issueId === issue.id);
-      pr.issueStatus = issue.status;
-      createOrUpdateLabel(pr, labelSize);
-    });
-  }).catch((error) => {
-    if (error.response && (error.response.status === 401)) {
-      notificationPanel.show('Please login to YouTrack');
-    }
-  });
-}
-
-chrome.runtime.onMessage.addListener(createOrUpdateIssueLinks);
+})();
 
 
-// Utility
-function QSA(selector) {
-  return [].slice.call(document.querySelectorAll(selector));
-}
-
-function getNotificationPanel() {
+function getNotifier() {
   const SHOW_CLASS = 'ytlink-notice--show';
-  let panel = document.querySelector('.ytlink-notice');
-  if (panel === null) {
-    panel = document.createElement('div');
-    panel.classList.add('ytlink-notice');
-    document.body.appendChild(panel);
-  }
+  const panel = document.createElement('div');
+  panel.classList.add('ytlink-notice');
+  document.body.appendChild(panel);
+  let timer = null;
+  
+  return (message) => {
+    panel.textContent = `Github YouTrack issue link: ${message}`;
+    panel.classList.add(SHOW_CLASS);
 
-  return {
-    show: function(message) {
-      panel.textContent = `Github YouTrack issue link: ${message}`;
-      panel.classList.add(SHOW_CLASS);
-
-      clearTimeout(window.ytLinkNoticeTimeout);
-      window.ytLinkNoticeTimeout = setTimeout(() => {
-        panel.classList.remove(SHOW_CLASS);
-        panel.textContent = '';
-      }, 5000);
-    }
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      panel.classList.remove(SHOW_CLASS);
+      panel.textContent = '';
+    }, 5000);
   };
 }
 
-function createOrUpdateLabel(pr, size) {
-  const LABEL_CLASS = 'ytlink-label';
-  let label = pr.link.parentNode.querySelector(`.${LABEL_CLASS}`);
-  if (label === null) {
-    label = document.createElement('a');
-    label.classList.add(LABEL_CLASS, `${LABEL_CLASS}--${size}`);
-    pr.link.parentNode.insertBefore(label, pr.link);
+function getDOMObserver(callback) {
+  const observer = new MutationObserver(callback);
+  
+  return (target) => {
+    observer.disconnect();
+    if (target) {
+      observer.observe(target, {childList: true});
+    }
   }
+}
 
-  label.style.backgroundColor = pr.issueStatus.color.bg;
-  label.style.color = pr.issueStatus.color.fg;
-  label.href = pr.issueLink;
-  label.textContent = pr.issueStatus.value;
+function getIssueLinksRenderer(notify) {
+  return (storageData) => {
+    const loadIssues = getIssueLoader(storageData.youtrackUrl);
+    loadIssues(getPullRequestsGroupedByIssues())
+      .then((issues) => {
+        issues.forEach((issue) => issue.pullRequests.forEach((pr) => updateLabel(issue, getLabel(pr))));
+      }) 
+      .catch((error) => {
+        const ERROR_MESSAGES = {
+          'NO_YT_URL': 'Please set YouTrack url in options',
+          'HTTP_401': 'Please login to YouTrack'
+        }
+        
+        if (ERROR_MESSAGES[error.message]) {
+          notify(ERROR_MESSAGES[error.message]);
+        }
+      });
+  }
+}
+
+function getPullRequestsGroupedByIssues() {
+  const QSA = (selector) => [].slice.call(document.querySelectorAll(selector));
+  const prTitles = QSA('.issue-title-link').concat(QSA('.js-issue-title'));
+  return prTitles.reduce((pullRequests, title) => {
+    const issueId = getIssueId(title.textContent);
+    if (issueId !== null) {
+      const currentValue = pullRequests.get(issueId) || {pullRequests: []};
+      pullRequests.set(issueId, {
+        pullRequests: [...currentValue.pullRequests, title]
+      });
+    }
+    return pullRequests;
+  }, new Map());
 }
 
 function getIssueId(prTitle) {
@@ -93,49 +83,65 @@ function getIssueId(prTitle) {
   return match ? match[0] : null;
 }
 
-function getIssueStatuses(youtrackUrl, pullRequests) {
-  const issueIds = pullRequests.map((pr) => pr.issueId).filter(Boolean);
-  if (issueIds.length === 0) {
-    return Promise.reject(new Error('No issues found'));
-  }
-
-  const filter = issueIds.map((issueId) => `issue+ID:+${issueId}`).join('+or+');
-  const url = `${youtrackUrl}/rest/issue?filter=${filter}&max=${issueIds.length}&with=State`
-  return fetch(url, {
-    credentials: 'include',
-    headers: {
-      accept: 'application/json'
+function getIssueLoader(youtrackUrl) {
+  return (pullRequests) => {
+    if (youtrackUrl === '') {
+      return Promise.reject(new Error('NO_YT_URL'));
+    } else if (pullRequests.size === 0) {
+      return Promise.reject(new Error('NO_ISSUES'));
     }
-  })
-  .then(checkStatus)
-  .then(prepareData);
+    
+    const issueIds = [...pullRequests.keys()];
+    const filter = issueIds.map((issueId) => `issue+ID:+${issueId}`).join('+or+');
+    const url = `${youtrackUrl}/rest/issue?filter=${filter}&max=${issueIds.length}&with=State`;
+    
+    return fetch(url, {
+      credentials: 'include',
+      headers: {
+        accept: 'application/json'
+      }
+    })
+    .then(checkStatus)
+    .then((response) => response.json())
+    .then((data) => mergeIssuesWithPR(youtrackUrl, pullRequests, data));
+  }
 }
 
 function checkStatus(response) {
   if ((response.status >= 200) && (response.status < 300)) {
     return response;
-  } else {
-    var error = new Error(response.statusText);
-    error.response = response;
-    throw error;
   }
+  throw new Error(`HTTP_${response.status}`);
 }
 
-function prepareData(response) {
-  return response.json().then((data) => {
-    return data.issue.map((issue) => {
-      const stateField = issue.field.find((field) => field.name === 'State');
-      return {
-        id: issue.id,
-        status: {
-          id: stateField.valueId[0],
-          value: stateField.value[0],
-          color: {
-            bg: stateField.color.bg,
-            fg: stateField.color.fg,
-          }
-        }
-      };
-    });
+function mergeIssuesWithPR(youtrackUrl, pullRequests, data) {
+  data.issue.forEach((issue) => {
+    const state = issue.field.find((field) => field.name === 'State'); 
+    pullRequests.set(issue.id, Object.assign({}, pullRequests.get(issue.id), {
+      status: {
+        id: state.valueId[0],
+        value: state.value[0],
+        color: state.color
+      }
+    }));
   });
+  return pullRequests;
+}
+
+function getLabel(prTitle) {
+  const LABEL_CLASS = 'ytlink-label';
+  let label = prTitle.parentNode.querySelector(`.${LABEL_CLASS}`);
+  if (label === null) {
+    label = document.createElement('a');
+    label.classList.add(LABEL_CLASS);
+    prTitle.parentNode.insertBefore(label, prTitle);
+  }
+  return label;
+}
+
+function updateLabel(issue, label) {
+  label.style.backgroundColor = issue.status.color.bg;
+  label.style.color = issue.status.color.fg;
+  label.textContent = issue.status.value;
+  label.href = issue.link;
 }

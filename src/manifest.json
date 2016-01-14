@@ -3,7 +3,7 @@
 
   "name": "Github YouTrack issue link",
   "description": "Shows issue status from YouTrack beside pull request name",
-  "version": "1.0.1",
+  "version": "1.0.2",
 
   "permissions": [
     "webNavigation",
